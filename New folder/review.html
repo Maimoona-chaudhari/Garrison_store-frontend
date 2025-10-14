@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Page</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8f9fa; }
+    .brand-name {
+      font-family: 'Georgia', 'Brush Script MT', cursive;
+      font-size: 2rem;
+      color: #742a74;
+    }
+  </style>
+</head>
+<body class="bg-light">
+
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm fixed-top">
+    <div class="container-fluid">
+
+      <!-- Brand (mobile) -->
+      <a class="navbar-brand d-lg-none" href="index.html">🌿 Garrison</a>
+
+      <!-- Toggler -->
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainMenu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <!-- Navbar content -->
+      <div class="collapse navbar-collapse" id="mainMenu">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="catalog.html">Our Catalog</a></li>
+          <li class="nav-item"><a class="nav-link" href="greens.html">Greens</a></li>
+          <li class="nav-item"><a class="nav-link" href="blooms.html">Blooms</a></li>
+          <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+        </ul>
+
+        <!-- Right icons -->
+        <div class="d-flex align-items-center">
+          <a href="login.html" class="btn btn-outline-success me-2"><i class="bi bi-person"></i></a>
+          <a href="cart.html" class="btn btn-outline-primary position-relative">
+            <i class="bi bi-cart"></i>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="cart-count">0</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Brand (desktop center) -->
+      <div class="d-none d-lg-block text-center position-absolute start-50 translate-middle-x" style="font-size: 1.2rem; color:#125d28;">
+        🌿 Garrison Store
+      </div>
+
+    </div>
+  </nav>
+
+  <!-- PAGE CONTENT -->
+  <div class="container py-5" style="margin-top: 80px;">
+    <!-- Product Details -->
+    <div class="row">
+      <div class="col-md-6">
+        <img src="product-image.jpg" alt="Product Image" class="img-fluid rounded">
+      </div>
+      <div class="col-md-6">
+        <h2 id="productName">Product Name</h2>
+        <p id="productPrice">$99.99</p>
+        <button class="btn btn-success">Add to Cart</button>
+      </div>
+    </div>
+
+    <hr class="my-5">
+
+    <!-- Reviews Section -->
+    <div>
+      <h3>Customer Reviews</h3>
+      <div id="averageRating" class="mb-3"></div>
+      <div id="reviewsList"></div>
+    </div>
+
+    <hr class="my-5">
+
+    <!-- Review Form -->
+    <div>
+      <h4>Write a Review</h4>
+      <form id="reviewForm">
+        <label class="form-label">Rating:</label>
+        <select id="rating" class="form-select" required>
+          <option value="1">⭐</option>
+          <option value="2">⭐⭐</option>
+          <option value="3">⭐⭐⭐</option>
+          <option value="4">⭐⭐⭐⭐</option>
+          <option value="5">⭐⭐⭐⭐⭐</option>
+        </select>
+
+        <label class="form-label mt-2">Your Review:</label>
+        <textarea id="reviewText" class="form-control"></textarea>
+
+        <button type="submit" class="btn btn-primary mt-3">Submit Review</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // ✅ Get productId from ?productId=... in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const productId = urlParams.get("productId");
+
+    if (!productId) {
+      alert("Error: No product selected for review. (productId missing in URL)");
+      throw new Error("No productId in URL");
+    }
+
+    // ✅ Load Reviews
+    async function loadReviews() {
+      try {
+        const res = await fetch(`https://garrisonstore-production.up.railway.app/api/reviews/product/${productId}`);
+        const reviews = await res.json();
+
+        if (!reviews.length) {
+          document.getElementById("averageRating").innerHTML = "No reviews yet.";
+          document.getElementById("reviewsList").innerHTML = "";
+          return;
+        }
+
+        // Average rating
+        const avg = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+        document.getElementById("averageRating").innerHTML =
+          `⭐ ${avg.toFixed(1)} out of 5 (${reviews.length} reviews)`;
+
+        // Show all reviews
+        const list = reviews.map(
+          (r) => `
+          <div class="card mb-2 p-2">
+            <strong>${r.userId?.name || "Anonymous"}</strong> 
+            <span>(${r.rating} ⭐)</span>
+            <p>${r.reviewText || ""}</p>
+            <small>${new Date(r.createdAt).toLocaleDateString()}</small>
+          </div>
+        `
+        ).join("");
+
+        document.getElementById("reviewsList").innerHTML = list;
+      } catch (err) {
+        console.error("Error loading reviews", err);
+      }
+    }
+
+    // ✅ Submit Review
+    document.getElementById("reviewForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const rating = document.getElementById("rating").value;
+      const reviewText = document.getElementById("reviewText").value;
+
+      // get token from localStorage
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        alert("Please login first to submit a review.");
+        return;
+      }
+
+      try {
+        const res = await fetch("https://garrisonstore-production.up.railway.app/api/reviews", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ productId, rating, reviewText })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          alert("Error submitting review: " + (data.message || JSON.stringify(data)));
+          console.error("Submit failed response:", data);
+          return;
+        }
+
+        alert("Review submitted!");
+        document.getElementById("reviewForm").reset();
+        loadReviews(); // refresh reviews
+      } catch (err) {
+        console.error("Error submitting review", err);
+        alert("Error submitting review (see console).");
+      }
+    });
+
+    // ✅ Load reviews on page start
+    loadReviews();
+  </script>
+
+</body>
+</html>

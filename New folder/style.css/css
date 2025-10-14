@@ -1,0 +1,23 @@
+.card img {
+  height: 250px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.btn-primary {
+  background-color: #6c63ff;
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: #574fd6;
+}
+
+.navbar a {
+  color: #333;
+  text-decoration: none;
+}
+
+.navbar a:hover {
+  color: #6c63ff;
+}

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>My Purchases - Garrison Store</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f8f9fa; }
+    .orders-container { max-width:1000px; margin:40px auto; padding:20px; }
+    .order-card { margin-bottom:18px; }
+    .empty-state { text-align:center; padding:30px; color:#666; }
+  </style>
+</head>
+<body>
+
+  <!-- Simple navbar (keep consistent with your other pages) -->
+  <nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="index.html">🌿 Garrison Store</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="menu">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="catalog.html">Our Catalog</a></li>
+          <li class="nav-item"><a class="nav-link" href="addons.html">Greens</a></li>
+          <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+          <!-- This will be visible when logged-in (see JS) -->
+          <li class="nav-item d-none" id="myOrdersNav"><a class="nav-link" href="myorders.html">My Purchases</a></li>
+        </ul>
+
+        <div class="d-flex">
+          <a class="btn btn-outline-success me-2" href="login.html">Login</a>
+          <a class="btn btn-outline-primary position-relative" href="cart.html">
+            Cart <span id="cart-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="orders-container">
+    <h2 class="mb-4">My Purchases</h2>
+
+    <div id="ordersArea">
+      <!-- Content inserted by JS -->
+      <div class="empty-state">Checking login status…</div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Helper: token name must match your login.js storage ----------
+    function getToken() {
+      return localStorage.getItem('authToken'); // we standardized on authToken
+    }
+
+    // Show/Hide nav item on all pages (call this from each page)
+    (function toggleNavForLogin() {
+      const token = getToken();
+      const el = document.getElementById('myOrdersNav');
+      if (el && token) el.classList.remove('d-none');
+    })();
+
+    // ---------- Render a single order (simple layout) ----------
+    function renderOrderCard(order) {
+      const itemsHtml = (order.items || []).map(i =>
+        `<div class="d-flex align-items-center mb-2">
+           <img src="${i.image || 'images/no-image.png'}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;margin-right:12px;">
+           <div>
+             <div style="font-weight:600">${escapeHtml(i.name)}</div>
+             <div style="color:#555">$${Number(i.price).toFixed(2)}</div>
+           </div>
+         </div>`
+      ).join('');
+
+      return `
+        <div class="card order-card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between mb-3">
+              <div><strong>Order ID:</strong> ${order._id}</div>
+              <div><strong>Status:</strong> <span class="badge bg-secondary">${escapeHtml(order.status || 'Pending')}</span></div>
+            </div>
+
+            <div>${itemsHtml || '<div class="text-muted">No items recorded</div>'}</div>
+
+            <div class="mt-3 d-flex justify-content-between">
+              <div><small class="text-muted">Placed: ${new Date(order.createdAt).toLocaleString()}</small></div>
+              <div><strong>Total: </strong>PKR ${Number(order.totalAmount || 0).toFixed(2)}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // safe small helper
+    function escapeHtml(str='') {
+      return String(str).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+    }
+
+    // ---------- Main: load orders for logged in user ----------
+    async function loadMyOrders() {
+      const token = getToken();
+      const area = document.getElementById('ordersArea');
+
+      if (!token) {
+        area.innerHTML = `<div class="empty-state">You are not logged in. <a href="login.html">Login</a> to see your purchases.</div>`;
+        return;
+      }
+
+      area.innerHTML = `<div class="empty-state">Loading your orders…</div>`;
+
+      try {
+        const res = await fetch('https://garrisonstore-production.up.railway.app/api/orders/mine', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (!res.ok) {
+          // backend route not ready / no orders / unauthorized
+          const text = await res.text().catch(()=> '');
+          console.error('Orders fetch failed', res.status, text);
+          area.innerHTML = `<div class="empty-state">No orders found or server not ready. (${res.status})</div>`;
+          return;
+        }
+
+        const orders = await res.json();
+        if (!orders || orders.length === 0) {
+          area.innerHTML = `<div class="empty-state">You have not placed any orders yet.</div>`;
+          return;
+        }
+
+        // render list
+        area.innerHTML = orders.map(o => renderOrderCard(o)).join('');
+      } catch (err) {
+        console.error(err);
+        area.innerHTML = `<div class="empty-state">Could not load orders. Make sure the backend is running.</div>`;
+      }
+    }
+
+    // run on load
+    document.addEventListener('DOMContentLoaded', () => {
+      // update small cart count if used elsewhere
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const cartCountEl = document.getElementById('cart-count');
+      if (cartCountEl) cartCountEl.textContent = cart.length;
+
+      loadMyOrders();
+    });
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
