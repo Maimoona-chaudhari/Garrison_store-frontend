@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Garrison Store</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      padding-top: 70px; /* avoid navbar overlap */
+    }
+
+    /* Login Container */
+    .login-container {
+      width: 90%;         /* responsive width */
+      max-width: 400px;   /* keeps it narrow on large screens */
+      margin: 40px auto;  /* top margin for spacing */
+      padding: 25px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    .login-container h3 {
+      font-weight: 600;
+    }
+
+    /* Navbar */
+    .navbar-brand {
+      font-weight: 700;
+      color: #125d28 !important;
+      font-size: 1.2rem;
+    }
+    .navbar-nav .nav-link {
+      font-weight: 600;
+      text-transform: uppercase;
+      margin: 0 10px;
+      color: #125d28 !important;
+    }
+    .navbar-nav .nav-link:hover {
+      color: #000 !important;
+    }
+
+    /* Cart badge */
+    #cart-count {
+      font-size: 0.7rem;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 576px) {
+      .login-container {
+        padding: 20px;
+      }
+      .login-container h3 {
+        font-size: 1.3rem;
+      }
+      .navbar-nav .nav-link {
+        font-size: 0.9rem;
+        padding: 0.5rem 0;
+      }
+      #cart-count {
+        font-size: 0.6rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm fixed-top">
+  <div class="container-fluid">
+
+    <!-- Brand (mobile) -->
+    <a class="navbar-brand d-lg-none" href="index.html">🌿 Garrison</a>
+
+    <!-- Toggler -->
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainMenu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <!-- Navbar content -->
+    <div class="collapse navbar-collapse" id="mainMenu">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="catalog.html">Our Catalog</a></li>
+        <li class="nav-item"><a class="nav-link" href="addons.html">Greens</a></li>
+        <li class="nav-item"><a class="nav-link" href="Blooms.html">Blooms</a></li>
+        <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+        <li class="nav-item d-none" id="myOrdersLink">
+  <a class="nav-link" href="myorders.html">My Purchases</a>
+</li>
+
+      </ul>
+
+      <!-- Right icons -->
+      <div class="d-flex align-items-center">
+        <a href="login.html" class="btn btn-outline-success me-2"><i class="bi bi-person"></i></a>
+        <a href="cart.html" class="btn btn-outline-primary position-relative">
+          <i class="bi bi-cart"></i>
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="cart-count">0</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Brand (desktop center) -->
+    <div class="d-none d-lg-block text-center position-absolute start-50 translate-middle-x" style="font-size: 1.2rem; color:#125d28;">
+      🌿 Garrison Store
+    </div>
+
+  </div>
+</nav>
+
+<!-- LOGIN FORM -->
+<div class="login-container">
+  <h3 class="text-center mb-4">Login to Garrison Store</h3>
+  <form id="login-form">
+    <div class="mb-3">
+      <label for="email" class="form-label">Email address</label>
+      <input type="email" class="form-control" id="email" required>
+    </div>
+    <div class="mb-3">
+      <label for="password" class="form-label">Password</label>
+      <input type="password" class="form-control" id="password" required>
+    </div>
+    <button type="submit" class="btn btn-success w-100">Login</button>
+  </form>
+  <p class="text-center mt-3">Don’t have an account? <a href="register.html">Register</a></p>
+  
+</div>
+
+<!-- JS -->
+<script>
+  // Login functionality
+  document.getElementById("login-form").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    if (email && password) {
+      try {
+        const response = await fetch("https://garrisonstore-production.up.railway.app/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // ✅ Save login info
+          localStorage.setItem("authToken", data.token);
+          localStorage.setItem("loggedInUser", data.user.email);
+          localStorage.setItem("userRole", data.user.role);
+
+          // ✅ STEP 1: Sync guest cart with backend
+          const localCart = JSON.parse(localStorage.getItem("cart")) || [];
+
+          if (localCart.length > 0) {
+            fetch("https://garrisonstore-production.up.railway.app/api/cart/sync", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${data.token}`,
+              },
+              body: JSON.stringify({ items: localCart }),
+            })
+              .then(res => res.json())
+              .then(syncData => {
+                console.log("✅ Cart synced:", syncData);
+                localStorage.removeItem("cart"); // clear guest cart
+              })
+              .catch(err => console.error("❌ Cart sync failed:", err));
+          }
+
+          // ✅ Redirect user
+          if (data.user.role === "admin") {
+            window.location.href = "admin/dashboard.html";
+          } else {
+            window.location.href = "index.html";
+          }
+
+        } else {
+          alert("❌ " + data.message);
+        }
+      } catch (err) {
+        alert("❌ Login failed. Try again.");
+        console.error(err);
+      }
+    } else {
+      alert("Please enter valid credentials.");
+    }
+  });
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
